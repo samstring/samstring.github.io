@@ -20,28 +20,48 @@
     var CONFIG = {"hostname":"samstring.github.io.git","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta property="og:type" content="website">
-<meta property="og:title" content="samstring">
-<meta property="og:url" content="https://samstring.github.io.git/index.html">
+  <meta name="description" content="一 前言说明本文主要讲述的是flutter的构建流程。一步步地去分析Flutter是如何从上往下构建Widget，顺便带出Flutter日常开发中的基本概念。 源码警告⚠️ 本文在分析过程中会夹带部分源码，整体边幅较长。友情提示，通过导航栏去到相应的地方 问题希望你能在阅读的过程能带着以下的一些问题。  Widget,Element,RenderObject是什么，三者的关系是怎样的? build">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Flutter源码阅读(1)-Widget,Element,RenderObject树的构建和更新流程">
+<meta property="og:url" content="https://samstring.github.io.git/2022/01/08/flutter1/index.html">
 <meta property="og:site_name" content="samstring">
+<meta property="og:description" content="一 前言说明本文主要讲述的是flutter的构建流程。一步步地去分析Flutter是如何从上往下构建Widget，顺便带出Flutter日常开发中的基本概念。 源码警告⚠️ 本文在分析过程中会夹带部分源码，整体边幅较长。友情提示，通过导航栏去到相应的地方 问题希望你能在阅读的过程能带着以下的一些问题。  Widget,Element,RenderObject是什么，三者的关系是怎样的? build">
 <meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b45ec5b603a04543b6fbfc95c2b6efe9~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4fe23dd692c049a4b09a2a2e8a0a219b~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b60e29d343074042a953d14cf6ae70f9~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/fcaed2121e104af392778a497d8ad083~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/578032ec139842d0b90a39a3038f0dd8~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ae694ca8696542779a7afb1abfcaef8d~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9d4a3b12d51b4bcca1589bcd008e1dd8~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6beea744b12b4020acea213eaedec072~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/bc0da1b3b35041e79ff74821225c7936~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/bd58ffb979cc442ea03af1bb1ef154ab~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3bbb765087784e8b901e107db6e88f6c~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e0430efdd94841cb8990c84604d3ce7f~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9368448436404d8db6f2609bbde7b4b9~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b6e8ad281ae943de8892b37c7b3c7510~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/53c905ca43b342c2a480e26ce2d04f2a~tplv-k3u1fbpfcp-watermark.image">
+<meta property="article:published_time" content="2022-01-07T16:00:38.000Z">
+<meta property="article:modified_time" content="2022-01-07T16:02:09.545Z">
 <meta property="article:author" content="samstring">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b45ec5b603a04543b6fbfc95c2b6efe9~tplv-k3u1fbpfcp-watermark.image">
 
-<link rel="canonical" href="https://samstring.github.io.git/">
+<link rel="canonical" href="https://samstring.github.io.git/2022/01/08/flutter1/">
 
 
 <script id="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome : true,
-    isPost : false,
+    isHome : false,
+    isPost : true,
     lang   : 'en'
   };
 </script>
 
-  <title>samstring</title>
+  <title>Flutter源码阅读(1)-Widget,Element,RenderObject树的构建和更新流程 | samstring</title>
   
 
 
@@ -144,9 +164,10 @@
         <div class="content-wrap">
           
 
-          <div class="content index posts-expand">
+          <div class="content post posts-expand">
             
-      
+
+    
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
@@ -162,10 +183,9 @@
       <meta itemprop="name" content="samstring">
     </span>
       <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/01/08/flutter1/" class="post-title-link" itemprop="url">Flutter源码阅读(1)-Widget,Element,RenderObject树的构建和更新流程</a>
-        </h2>
+        <h1 class="post-title" itemprop="name headline">
+          Flutter源码阅读(1)-Widget,Element,RenderObject树的构建和更新流程
+        </h1>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -198,7 +218,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h2 id="一-前言"><a href="#一-前言" class="headerlink" title="一 前言"></a>一 前言</h2><h3 id="说明"><a href="#说明" class="headerlink" title="说明"></a>说明</h3><p>本文主要讲述的是flutter的构建流程。一步步地去分析Flutter是如何从上往下构建Widget，顺便带出Flutter日常开发中的基本概念。</p>
+        <h2 id="一-前言"><a href="#一-前言" class="headerlink" title="一 前言"></a>一 前言</h2><h3 id="说明"><a href="#说明" class="headerlink" title="说明"></a>说明</h3><p>本文主要讲述的是flutter的构建流程。一步步地去分析Flutter是如何从上往下构建Widget，顺便带出Flutter日常开发中的基本概念。</p>
 <p>源码警告⚠️ 本文在分析过程中会夹带部分源码，整体边幅较长。友情提示，通过导航栏去到相应的地方</p>
 <h3 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h3><p>希望你能在阅读的过程能带着以下的一些问题。</p>
 <ol>
@@ -397,211 +417,30 @@
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>其实理解Widget,Element,RenderObject树的概念不是必要的，但是很重要。对于后续理解app的流程，手势传递等，以及优化等分析都是必不可少的部分。</p>
 <p>这是一篇自己写过的文章，<a target="_blank" rel="noopener" href="https://juejin.cn/post/6952076273891934221">原文地址</a>。为什么要重写一遍呢？一是原来的文章流程图上格式有些混乱，之前的流程图也丢失了，所以重新整理了一遍。二是之前的源码偏多，最近也正好重新看了下源码，于是换个思路再写一篇那样。</p>
 
-      
     </div>
 
     
     
     
+
       <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://samstring.github.io.git/2022/01/07/iOS/1/ios1/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="samstring">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="samstring">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/01/07/iOS/1/ios1/" class="post-title-link" itemprop="url">理解iOS app的编译，运行过程</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-              
-
-              <time title="Created: 2022-01-07 22:23:54 / Modified: 23:14:17" itemprop="dateCreated datePublished" datetime="2022-01-07T22:23:54+08:00">2022-01-07</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">In</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/iOS/" itemprop="url" rel="index"><span itemprop="name">iOS</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="理解iOS-app的编译，运行过程"><a href="#理解iOS-app的编译，运行过程" class="headerlink" title="理解iOS app的编译，运行过程"></a>理解iOS app的编译，运行过程</h1><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>一年都没怎么写iOS的文章。最近有一些知识学习了完以后总觉得零零散散的，打算以这一篇文章作为开篇，系统地记录一些所学习的iOS知识。</p>
-<p>本篇文章的基础框架已经初步确定了，不会提及到特别深入的知识点。本篇文章以APP是一个app的编译和运行过程的一个概述，为后续的文章提供一个基本的分析思路。之后时不时会随着研究内容的时候补充一些细节。</p>
-<h2 id="一、-系统架构"><a href="#一、-系统架构" class="headerlink" title="一、 系统架构"></a>一、 系统架构</h2><p>在谈iOS的运行过程前，我们首先需要了解iOS的系统。其实iOS和MacOS一脉相承，总体的结构设计都如下所示</p>
-<image src='https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e5a3da46afa24c60aaeccb2625bbcbbf~tplv-k3u1fbpfcp-watermark.image' height=200>
-
-<p>底层都是Darwin，是一个操作系统。Darwin结构如下</p>
-<image src='https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/576d1583aa6545c78c3236ee51943eb4~tplv-k3u1fbpfcp-watermark.image' height=300>
+        
 
 
-<p>其中Darwin的内核是XNU。然后XNU里面使用了BSD和Mach。</p>
-<p>到这里可以基本理解为MacOS和iOS是一个类Unix系统，BSD也兼容Posix这个标准，所以我们能在iOS开发中使用pthread，在Mac上终端处理unix命令的原因。<br>这里关于iOS和MAC OS架构的描述就先说这么多，如果有兴趣了解更深一些的话，可以查看《深入了解MACOS&amp;iOS操作系统》一书。</p>
-<p>先介绍这个系统架构，主要是为了让大家了解，在后续的文章中用到的方法有些是Mach这一层的提供的。</p>
-<h2 id="二、-Mach-O"><a href="#二、-Mach-O" class="headerlink" title="二、 Mach-O"></a>二、 Mach-O</h2><p>Mach-O是什么？</p>
-<p>我们在打开了一个App，可以理解在手机的操作系统上运行了一个App进程。而进程是特殊文件在内存中加载得到的结果，这种特殊文件必须是操作系统可理解的。</p>
-<p>在unix中，可运行的程序会编译成一个二进制文件，unix对于二进制文件，有一个标准的格式叫ElF。苹果爸爸偏偏不依，定制了一个属于苹果的格式，这个就是Mach-O格式，全称Mach-Object。</p>
-<p>但是Mach-O不仅仅是只是可执行文件的格式标准，还是macOS和iOS中一些其他文件的标准格式。常见的Mach-O格式有下面几种</p>
-<ul>
-<li> 可执行文件</li>
-<li> 库文件(.a .dylib .framework等)</li>
-<li> dyld（动态连接器）</li>
-<li> dsym文件（符号表）</li>
-<li> 目标文件(编译输出的.0文件)</li>
-</ul>
-<p>Mach-O总的来说可以说是苹果的一种文件标准的格式。</p>
-<p>以下以可执行文件为重点去讲述Mach-O</p>
-<h3 id="可执行文件"><a href="#可执行文件" class="headerlink" title="可执行文件"></a>可执行文件</h3><p>我们开发的app，编译打包后，就会生成一个可执行的，Mach-O格式的二进制文件。</p>
-<p>对于macOS和iOS中的App，其生成可执行二进制文件从支持的架构分为两种</p>
-<ol>
-<li>单架构的二进制文件</li>
-<li>胖二进制文件</li>
-</ol>
-<p>单架构的二进制文件就是运行于单个架构(如x86,ARM64等)的二进制文件。而胖二进制就是一个二进制文件里面包含多个单架构的二进制文件。</p>
-<h3 id="Mach-O内容"><a href="#Mach-O内容" class="headerlink" title="Mach-O内容"></a>Mach-O内容</h3><p>以mac中的计算器App为例，用MachOView查看如下</p>
-<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b90b00cf492844f2a5418a5bc1aa8851~tplv-k3u1fbpfcp-watermark.image" alt="截屏2022-01-03 上午12.09.33.png"></p>
-<p>可以看到这是一个Fat Binary类型的可执行文件，也就是我们平常说的胖二进制文件。里面包含了两个Executable二进制文件，每一个Excutable里面的格式可以参照单个架构的Mach-O的格式。当我们点击app的时候，就会从中选合适的Excutable加载到内存中。</p>
-<p>单个Excutable的格式总体如下</p>
-<p><img
- src='https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5396d2cc3cae47dabd1f99f69c753bc4~tplv-k3u1fbpfcp-watermark.image' height="450"></p>
-<p>对于上面的图片，单架构的可执行文件Mach-O文件格式的内部结构总体如下</p>
-<p><img
- src='https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/198a170630884b6794a647b753d7bc89~tplv-k3u1fbpfcp-watermark.image' height="450"></p>
-<p>从图中可知，Mach-O大概分为三个部分</p>
-<ul>
-<li>mach-header</li>
-<li>load commands</li>
-<li>Data</li>
-</ul>
-<p>下面简单的说下各个部分的作用是什么。</p>
-<h5 id="1-mach-header"><a href="#1-mach-header" class="headerlink" title="1. mach_header"></a>1. mach_header</h5><p>mach_header 位于 Mach-O 文件的头部，有以下作用</p>
-<ul>
-<li>标明Mach-O 的格式</li>
-<li>标明文件类型，CPU 架构等信息</li>
-<li>标明load commands数量等</li>
-<li>其他</li>
-</ul>
-<p>对于计算器App，在MachOView中整体如下</p>
-<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e190a9c4a4a5404c8760dd2b5fff647d~tplv-k3u1fbpfcp-watermark.image?scale=0.2" alt="截屏2022-01-03 上午12.01.28.png"></p>
-<h5 id="2-load-commands"><a href="#2-load-commands" class="headerlink" title="2. load commands"></a>2. load commands</h5><p>这一部分存储的是加载指令，直到操作系统该如何把可执行文件加载到内存中。有以下作用</p>
-<ul>
-<li>指导data部分的数据应该怎么加载</li>
-<li>指导dyld加载哪些库</li>
-<li>指明符号表地址</li>
-<li>其他</li>
-</ul>
-<p>对于计算器App，在MachOView中整体如下</p>
-<p><img
- src='https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ee07c8c322824d4cad62fa35fb2684a3~tplv-k3u1fbpfcp-watermark.image' height="450"></p>
-<h5 id="3-Data"><a href="#3-Data" class="headerlink" title="3. Data"></a>3. Data</h5><p>这一部分存储的数据区域，包含程序运行的一切数据，表明数据加载到什么位置。部分数据如</p>
-<ul>
-<li>代码数据</li>
-<li>运行时的类数据</li>
-<li>符号表，动态符号表</li>
-<li>其他数据</li>
-</ul>
-<p>对于计算器App，在MachOView中整体如下</p>
-<p><img
- src='https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1f6579aaf8fb4e5788982db114af3db7~tplv-k3u1fbpfcp-watermark.image' height="450"></p>
-<p>对于Data区域的文档，可以按照Segment和section划分。Segment和section的关系有点像操作系统中的段和页的概念。<br>这里section可以简单为Segment的子节点，而Data中的数据是以Segment为单位划分的。常见的Segment有</p>
-<ol>
-<li>__PAGEZERO。一段随机大小，不可访问的空间</li>
-<li>__TEXT。代码区</li>
-<li>__DATA。数据区域</li>
-<li>__LINKEDIT；包含了方法和变量的元数据，代码签名等信息</li>
-</ol>
-<h2 id="三、App编译"><a href="#三、App编译" class="headerlink" title="三、App编译"></a>三、App编译</h2><p>当我们在Xcode上编写代码，如何生成一个可执行的文件呢？对于一个通用编译流程，如下</p>
-<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8f2fd5368258495abe30f87404851d0f~tplv-k3u1fbpfcp-watermark.image" alt="编译流程.jpg"></p>
-<p>在Xcode中使用LLVM架构流程化处理上面的步骤，我们无需操心。但是作为开发者，我们可以理解一下LLVM的基本的流程。</p>
-<p>LLVM的总体架构如下所示，分为前端，中间层，后端等</p>
-<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6292514860b74f36960880755e8a9d28~tplv-k3u1fbpfcp-watermark.image" alt="3008243-b517c768f5a97607.png"></p>
-<p>在iOS中，结合编译流程与LLVM，各个步骤如下。</p>
-<h3 id="1-预处理"><a href="#1-预处理" class="headerlink" title="1. 预处理"></a>1. 预处理</h3><p>在预处理的阶段中，根据语言选择编译器前端。如对于OC，会调用编译器前端Clang首先预处理我们代码。这一步会进行将宏替换到代码中、删除注释、处理预编译命令等工作</p>
-<h3 id="2-编译、优化"><a href="#2-编译、优化" class="headerlink" title="2. 编译、优化"></a>2. 编译、优化</h3><p>在这个阶段，在编译器前前端处理以下步骤</p>
-<ol>
-<li>词法分析</li>
-<li>语法分析</li>
-<li>静态分析</li>
-<li>为每一个文件生成中间代码IR</li>
-</ol>
-<h3 id="3-汇编"><a href="#3-汇编" class="headerlink" title="3. 汇编"></a>3. 汇编</h3><p>拿到第二个步骤的IR文件后，LLVM中间层LLVM Optimizer就会对每一个IR文件进行一些优化，如尾递归优化、循环优化、全局变量优化。<br>优化完成后，LLVM会调用汇编生成器将每一个IR文件转化成汇编代码。再根据部署的平台选择对应的编译器后端，将汇编转变生成产物，也就是一个个<code>.o</code>文件了（二进制文件）。</p>
-<h3 id="4-链接程序"><a href="#4-链接程序" class="headerlink" title="4. 链接程序"></a>4. 链接程序</h3><p>在上面步骤中，生成了一个个.o文件。在我们正常开发中，一个文件通常会引用别的文件或是库,链接过程会将多个目标文以及所需的库文件链接成最终的可执行文件,也就是Mach-O的文件。对于动态库，链接构成中不会把库加载进来，而是会把动态库的相关信息写入到可执行文件中。</p>
-<p>经过上述步骤，我们开发的代码会生成一个Mach-O格式的可执行文件。</p>
-<h2 id="四、-App运行过程"><a href="#四、-App运行过程" class="headerlink" title="四、 App运行过程"></a>四、 App运行过程</h2><h3 id="1-加载到内存"><a href="#1-加载到内存" class="headerlink" title="1. 加载到内存"></a>1. 加载到内存</h3><p>当我们点击App的时候，操作系统就会在手机上开辟一段虚拟内存空间，然后加载Mach-O格式的二进制文件。如下</p>
-<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d97a3938ac654d1b90a7df4aee23453c~tplv-k3u1fbpfcp-watermark.image" alt="截屏2022-01-03 上午12.58.47.png"></p>
-<p>其中图中类似于管道的部分可以理解为系统为程序分配的内存空间。然后把我们的可执行文件加载到内存中。</p>
-<p>注意图中有一个PAGEZERO的区域，这个是苹果的ASLR技术，也就是地址空间布局随机化。从【App编译】小节我们可以知道，当我们编译出一个App的时候，生成的Mach-O文件的内容地址是固定的。</p>
-<p>ASLR技术在每次运行App的时候，都会加上一个PAGEZERO，PAGEZERO的大小都是随机的。加上PAGEZERO以后，Mach-O里面的地址都会需要加上相对的偏移，这样可以增加App的攻击难度。</p>
-<h3 id="2-调用dyld进程加载dylib"><a href="#2-调用dyld进程加载dylib" class="headerlink" title="2. 调用dyld进程加载dylib"></a>2. 调用dyld进程加载dylib</h3><p>把Mach-O当作一个image加载到虚拟内存后，会启动dyld进程，根据load commonds里面的加载命令，加载需要的动态库。以Mac上的计算器app为例，加载命令在Mach-O如下</p>
-<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c5f8861d4d7f494da2ad146f50f987ed~tplv-k3u1fbpfcp-watermark.image" alt="截屏2022-01-03 下午9.15.04.png"></p>
-<p>dyld根据这些加载命令把这些第三方库加载到虚拟内存中，加载后如下</p>
-<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b89e0487287f473b864485fd0abd21af~tplv-k3u1fbpfcp-watermark.image" alt="截屏2022-01-03 下午9.13.53.png"></p>
-<h3 id="3-修复处理"><a href="#3-修复处理" class="headerlink" title="3. 修复处理"></a>3. 修复处理</h3><h4 id="Rebase"><a href="#Rebase" class="headerlink" title="Rebase"></a>Rebase</h4><p>在编译过程中，Mach-O文件的文件引用。由于签名和ASLR技术加载了PAGEZERO区域，所以文件里面的内容都会有偏移。这时候就需要修正文件里面的指针引用。Rebase过程就是对于文件里面的指针一个修正过程。</p>
-<h4 id="Bind"><a href="#Bind" class="headerlink" title="Bind"></a>Bind</h4><p>在编译过程，可执行文件对动态库的方法调用是只声明了符号。在调用dyld把这些动态库在加载到内存后，需要去相应的动态库中链接对应的方法，找到其指针，然后对可执行文件中的指针执行修复。Bind过程中就是把这些指向动态库的指针进行修复。</p>
-<h4 id="Objc"><a href="#Objc" class="headerlink" title="Objc"></a>Objc</h4><p>大部分修复操作都已经在Rebase和Bind中做了，这一部分的工作主要是做Objc运行时的处理。如加载category里面的方法到类中，这一部分在苹果开源的objc库中可以找到相关内容，在笔者前面的文章也提及到过(ps:早期文章写的比较随意，大家可以结合文章里面的注释看源码)。</p>
-<h3 id="4-Initalizers"><a href="#4-Initalizers" class="headerlink" title="4.Initalizers"></a>4.Initalizers</h3><p>这一个阶段基本就是执行c++的初始化，OC load方法。执行完以后。由dyld调用程序中的main函数</p>
-<h3 id="5-执行main函数"><a href="#5-执行main函数" class="headerlink" title="5.执行main函数"></a>5.执行main函数</h3><p>执行main函数，开始一个RunLoop，保持程序的不断运行，然后开始执行我们程序中AppDelegate中的代码。</p>
-<p>按照苹果官方的PPT，加载可程序后执行的总体步骤如下</p>
-<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2ee1124925b04a9aab89867de8231816~tplv-k3u1fbpfcp-watermark.image" alt="截屏2022-01-03 下午10.05.44.png"></p>
-<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>笔者才疏学浅，这一篇文章是参考了其他博客，结合自身的理解，得出的一篇关于iOS的编译和运行过程的一个概述，如果有纰漏的地方，望各位读者指正。</p>
-<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_44060108/article/details/117439965">Mach-O文件结构</a></p>
-<p><a target="_blank" rel="noopener" href="https://www.imgeek.org/article/825359095">iOS App - 从编译到运行</a></p>
-<p><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/1367dad95445">深入浅出让你理解什么是LLVM</a></p>
-<p><a target="_blank" rel="noopener" href="https://devstreaming-cdn.apple.com/videos/wwdc/2016/406i3zbazbegkeh0udt/406/406_optimizing_app_startup_time.pdf">优化启动时间</a></p>
-<p><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/42cb026ce541">clang常用命令学习</a></p>
-
-      
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/01/07/iOS/1/ios1/" rel="prev" title="理解iOS app的编译，运行过程">
+      <i class="fa fa-chevron-left"></i> 理解iOS app的编译，运行过程
+    </a></div>
+      <div class="post-nav-item"></div>
     </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
       </footer>
+    
   </article>
   
   
-  
-
-
   
 
 
@@ -654,6 +493,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80-%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">一 前言</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AF%B4%E6%98%8E"><span class="nav-number">1.1.</span> <span class="nav-text">说明</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%97%AE%E9%A2%98"><span class="nav-number">1.2.</span> <span class="nav-text">问题</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C-Widget-Element-RenderObjct"><span class="nav-number">2.</span> <span class="nav-text">二 Widget,Element,RenderObjct</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Widget-Element-RenderObject%E8%AF%B4%E6%98%8E"><span class="nav-number">2.1.</span> <span class="nav-text">Widget,Element,RenderObject说明</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89-Widget%E6%A0%91%E6%9E%84%E5%BB%BA"><span class="nav-number">3.</span> <span class="nav-text">三 Widget树构建</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Widget%E6%A0%91%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-number">3.1.</span> <span class="nav-text">Widget树是什么？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Widget%E6%A0%91%E6%80%8E%E4%B9%88%E6%9E%84%E5%BB%BA%EF%BC%9F"><span class="nav-number">3.2.</span> <span class="nav-text">Widget树怎么构建？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9E%84%E5%BB%BA%E7%AE%A1%E7%90%86%E8%80%85BuilderOwner"><span class="nav-number">3.2.1.</span> <span class="nav-text">构建管理者BuilderOwner</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9E%84%E5%BB%BA%E6%B5%81%E7%A8%8B"><span class="nav-number">3.2.2.</span> <span class="nav-text">构建流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9E%84%E5%BB%BA%E6%B5%81%E7%A8%8B%E5%9B%BE"><span class="nav-number">3.2.3.</span> <span class="nav-text">构建流程图</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B-Widget%E6%A0%91%E6%98%AF%E6%80%8E%E4%B9%88%E6%9B%B4%E6%96%B0%E7%9A%84%EF%BC%9F"><span class="nav-number">4.</span> <span class="nav-text">四 Widget树是怎么更新的？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#State"><span class="nav-number">4.1.</span> <span class="nav-text">State</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#updateChild"><span class="nav-number">4.2.</span> <span class="nav-text">updateChild</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94-Widget-Eleemtn-RenderObject%E6%A0%91%E7%9A%84%E8%A1%A5%E5%85%85"><span class="nav-number">5.</span> <span class="nav-text">五 Widget,Eleemtn,RenderObject树的补充</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#RenderObject%E6%A0%91%E7%9A%84%E6%9E%84%E5%BB%BA"><span class="nav-number">5.1.</span> <span class="nav-text">RenderObject树的构建</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RenderObject%E6%A0%91%E6%9B%B4%E6%96%B0"><span class="nav-number">5.2.</span> <span class="nav-text">RenderObject树更新</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD-%E6%8B%93%E5%B1%95"><span class="nav-number">6.</span> <span class="nav-text">六 拓展</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Flutter%E4%B8%AD%E7%9A%84Key"><span class="nav-number">6.1.</span> <span class="nav-text">Flutter中的Key</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
