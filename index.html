@@ -231,6 +231,98 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://p9-passport.byteacctimg.com/img/user-avatar/b02abbd29495eadaaf476f3b5cb129bf~300x300.image">
+      <meta itemprop="name" content="samstring">
+      <meta itemprop="description" content="问号青年">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="samstring">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/01/09/iOS/2/ios2/" class="post-title-link" itemprop="url">理解Xcode工程与CocoaPods</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2022-01-09 15:17:01" itemprop="dateCreated datePublished" datetime="2022-01-09T15:17:01+08:00">2022-01-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-01-08 22:24:46" itemprop="dateModified" datetime="2022-01-08T22:24:46+08:00">2022-01-08</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/iOS/" itemprop="url" rel="index"><span itemprop="name">iOS</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><h2 id="一、问题"><a href="#一、问题" class="headerlink" title="一、问题"></a>一、问题</h2><p>抖音之前发表了一个利用二进制重排的方案去优化启动速度。然后这两年关于二进制重排的文章已经有很多了。</p>
+<p>其核心是记录在启动时刻获取调用了哪些文件的哪些方法，然后将这些方法按顺序放在‘.order’文件中，系统在加载时根据这些内容优先加载，以减少page fault次数，提高启动速度。</p>
+<p><br>很多文章中的方案都是基于Clang插桩的方式去实现。以下以一篇我认为很好的文章 <a target="_blank" rel="noopener" href="https://juejin.cn/post/6844904130406793224#heading-36">启动优化之Clang插桩实现二进制重排</a> 一文为例</p>
+<p>文中步骤如下</p>
+<ol>
+<li>打开工程，修改项目配置，增加-fsanitize-coverage=func,trace-pc-guard这个Other C Flags</li>
+<li>添加__sanitizer_cov_trace_pc_guard函数。这个函数会hook方法，在每一个方法调用前都会调用。</li>
+<li>在__sanitizer_cov_trace_pc_guard记录调用的方法，并存入数组</li>
+<li>将数组里面的方法按顺序写入到’.order’文件中</li>
+</ol>
+<p>但文中只提及到了在主工程中插桩，这样的话只能记录主工程中的方法调用顺序。对于我们通过CocoaPods引入的库的方法是记录不到的。</p>
+<p>下面我们将详细分析Xcode工程和CocoaPods，来完善这个通过Clang插桩实现二进制重排的方案。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2022/01/09/iOS/2/ios2/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="https://samstring.github.io.git/2022/01/08/Flutter/3/flutter3/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -294,74 +386,6 @@
             </div>
           <!--/noindex-->
         
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://samstring.github.io.git/2022/01/08/iOS/2/ios2/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="https://p9-passport.byteacctimg.com/img/user-avatar/b02abbd29495eadaaf476f3b5cb129bf~300x300.image">
-      <meta itemprop="name" content="samstring">
-      <meta itemprop="description" content="问号青年">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="samstring">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/01/08/iOS/2/ios2/" class="post-title-link" itemprop="url">理解</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-              
-
-              <time title="Created: 2022-01-08 15:17:01 / Modified: 15:19:44" itemprop="dateCreated datePublished" datetime="2022-01-08T15:17:01+08:00">2022-01-08</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">In</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/iOS/" itemprop="url" rel="index"><span itemprop="name">iOS</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>ddd</p>
-
       
     </div>
 
