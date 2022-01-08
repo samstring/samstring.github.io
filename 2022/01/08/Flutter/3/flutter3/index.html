@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.0.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"samstring.github.io.git","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="前言在前面这两篇文章中，说了Flutter启动时是如何去构建Widget.Element,RenderObject节点树。 然后这篇文章中，会分析一下Flutter中的布局流程,以及点击hitTest的调用流程 基本的布局流程代码是在RenderObjcet这个类里处理，但是这是一个最基础的流程，不包含具体的坐标体系，大小等。移动开发中，通常是使用笛卡尔坐标。 RenderBox是继承了Rende">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Flutter源码阅读(3)-Flutter的布局与hitTest">
+<meta property="og:url" content="https://samstring.github.io.git/2022/01/08/Flutter/3/flutter3/index.html">
+<meta property="og:site_name" content="samstring">
+<meta property="og:description" content="前言在前面这两篇文章中，说了Flutter启动时是如何去构建Widget.Element,RenderObject节点树。 然后这篇文章中，会分析一下Flutter中的布局流程,以及点击hitTest的调用流程 基本的布局流程代码是在RenderObjcet这个类里处理，但是这是一个最基础的流程，不包含具体的坐标体系，大小等。移动开发中，通常是使用笛卡尔坐标。 RenderBox是继承了Rende">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d0b314a06fd14e07ac0f005060877f5a~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7aa0fd05a28e4215858e2acc5e85978f~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1fc2ac8fd44942b1add91cb36dc04fb1~tplv-k3u1fbpfcp-watermark.image">
+<meta property="og:image" content="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3722bc5e13374a42ab2b0e5dfaf10463~tplv-k3u1fbpfcp-watermark.image">
+<meta property="article:published_time" content="2022-01-08T07:33:38.000Z">
+<meta property="article:modified_time" content="2022-01-08T07:37:40.475Z">
+<meta property="article:author" content="samstring">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d0b314a06fd14e07ac0f005060877f5a~tplv-k3u1fbpfcp-watermark.image">
+
+<link rel="canonical" href="https://samstring.github.io.git/2022/01/08/Flutter/3/flutter3/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>Flutter源码阅读(3)-Flutter的布局与hitTest | samstring</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">samstring</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个平平无奇的程序猿</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-主页">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>主页</a>
+
+  </li>
+        <li class="menu-item menu-item-分类">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-归档">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://samstring.github.io.git/2022/01/08/Flutter/3/flutter3/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://p9-passport.byteacctimg.com/img/user-avatar/b02abbd29495eadaaf476f3b5cb129bf~300x300.image">
+      <meta itemprop="name" content="samstring">
+      <meta itemprop="description" content="问号青年">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="samstring">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Flutter源码阅读(3)-Flutter的布局与hitTest
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2022-01-08 15:33:38 / Modified: 15:37:40" itemprop="dateCreated datePublished" datetime="2022-01-08T15:33:38+08:00">2022-01-08</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Flutter/" itemprop="url" rel="index"><span itemprop="name">Flutter</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在前面这两篇文章中，说了Flutter启动时是如何去构建Widget.Element,RenderObject节点树。</p>
+<p>然后这篇文章中，会分析一下Flutter中的布局流程,以及点击hitTest的调用流程</p>
+<p>基本的布局流程代码是在RenderObjcet这个类里处理，但是这是一个最基础的流程，不包含具体的坐标体系，大小等。移动开发中，通常是使用笛卡尔坐标。</p>
+<p>RenderBox是继承了RenderObjcet，实现了基于笛卡尔坐标的布局。</p>
+<p>本文从源码的角度分析Flutter中layout的基础流程，以及hitTest的调用流程。但是因为有些内容需要参考，可以参考</p>
+<p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6952076273891934221">Widget,Element,RenderObject树的构建和更新流程</a></p>
+<p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6958008241825513480">Flutter App的启动流程</a></p>
+<span id="more"></span>
+<h2 id="RenderObject"><a href="#RenderObject" class="headerlink" title="RenderObject"></a>RenderObject</h2><h3 id="基础"><a href="#基础" class="headerlink" title="基础"></a>基础</h3><p>RenderObject可以理解为一个节点的信息，描述着节点的布局Layout,图层Layer和绘制Paint信息。</p>
+<p>在文章说到,RenderObject是由Widget创建的。当构建Widget树的时候，也会一并创建RenderObject树。</p>
+<p>如果一个Widget是跟UI信息有关的，基本基类都是RenderObjectWidget，对应的Element的基类都是RenderObjectElement，而且会对应有一个RenderObject。</p>
+<h3 id="请求布局更新"><a href="#请求布局更新" class="headerlink" title="请求布局更新"></a>请求布局更新</h3><p>在Widget更新的时候，会调用RenderObjectElement的update方法</p>
+<p>。update如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@override</span></span><br><span class="line"> <span class="keyword">void</span> update(<span class="keyword">covariant</span> RenderObjectWidget newWidget) &#123;</span><br><span class="line">   <span class="keyword">super</span>.update(newWidget);</span><br><span class="line">  ...</span><br><span class="line">   widget.updateRenderObject(<span class="keyword">this</span>, renderObject);</span><br><span class="line">  ...</span><br><span class="line">   _dirty = <span class="keyword">false</span>;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>当Wiget是一个RenderObjectWidget的时候,更新的时候会调用RenderObjectElement的update方法。update方法就会反过来调用RenderObjectWidget的updateRenderObject方法。</p>
+<p>然后Widget在updateRenderObject处理RenderObject。如果需要更新布局的话，就调用RenerObject的markNeedsLayout方法去请求布局更新。markNeedsLayout的实现如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> markNeedsLayout() &#123;</span><br><span class="line">   ...</span><br><span class="line">    <span class="keyword">if</span> (_relayoutBoundary != <span class="keyword">this</span>) &#123;</span><br><span class="line">      <span class="comment">//如果当前节点不是布局边界，也就是该节点的布局会影响到父布局</span></span><br><span class="line">      <span class="comment">//markParentNeedsLayout会向上递归调用markNeedsLayout()方法，直到父节点是布局边界为止</span></span><br><span class="line">      markParentNeedsLayout();</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      _needsLayout = <span class="keyword">true</span>;</span><br><span class="line">     ...</span><br><span class="line">       <span class="comment">//owner是PipelineOwner,用来统一管理布局，图层，绘制</span></span><br><span class="line">        owner!._nodesNeedingLayout.add(<span class="keyword">this</span>);</span><br><span class="line">        owner!.requestVisualUpdate();</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>当调用markNeedsLayout的时候，不是马上就改动UI界面，而是把这个改动记录下来。当下次界面更新的时候，把所有的改动一次性修改</p>
+<h3 id="布局更新请求处理"><a href="#布局更新请求处理" class="headerlink" title="布局更新请求处理"></a>布局更新请求处理</h3><p>像以前提到Widget的构建流程中BuildOwner一样，同样存在一个调度中心PipelineOwner。他是负责处理RenderObject树的布局，图层更新，和绘制流程。</p>
+<p>当节点有布局Layout更新需求时，就会调用会markNeedsLayout()方法,把自身添加到PipelineOwner中的_nodesNeedingLayout中列表中，</p>
+<p>跟着会去调用PipelineOwner的requestVisualUpdate方法，这个方法会去注册一个回调，当帧信号发出的时候，就会调用这个回调。回调执行时候，会调用RenderBinding的drawFrame方法(关于这个RenderBinding以及调用流程，可以查看<a target="_blank" rel="noopener" href="https://juejin.cn/post/6958008241825513480">Flutter App的启动流程</a>，</p>
+<p>这个方法如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> drawFrame() &#123;</span><br><span class="line">    <span class="keyword">assert</span>(renderView != <span class="keyword">null</span>);</span><br><span class="line">    pipelineOwner.flushLayout();</span><br><span class="line">    pipelineOwner.flushCompositingBits();</span><br><span class="line">    pipelineOwner.flushPaint();</span><br><span class="line">    <span class="keyword">if</span> (sendFramesToEngine) &#123;</span><br><span class="line">      renderView.compositeFrame(); <span class="comment">// this sends the bits to the GPU</span></span><br><span class="line">      pipelineOwner.flushSemantics(); <span class="comment">// this also sends the semantics to the OS.</span></span><br><span class="line">      _firstFrameSent = <span class="keyword">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看出，当GPU帧信号发出的时候，会调用PipelineOwner的flushLayout()方法去更新界面上的布局信息等，然后提交给GPU做渲染。</p>
+<p>PS:本文重点讲述的是布局，加上图层和绘制的处理流程和布局的流程大致相似，所以这里重点讲得是flushLayout的过程。实现如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> flushLayout() &#123;</span><br><span class="line">    ...</span><br><span class="line">       <span class="keyword">while</span> (_nodesNeedingLayout.isNotEmpty) &#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="built_in">List</span>&lt;RenderObject&gt; dirtyNodes = _nodesNeedingLayout;</span><br><span class="line">        _nodesNeedingLayout = &lt;RenderObject&gt;[];</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">final</span> RenderObject node <span class="keyword">in</span> dirtyNodes..sort((RenderObject a, RenderObject b) =&gt; a.depth - b.depth)) &#123;</span><br><span class="line">          <span class="keyword">if</span> (node._needsLayout &amp;&amp; node.owner == <span class="keyword">this</span>)</span><br><span class="line">            node._layoutWithoutResize();</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">   ...</span><br><span class="line">  &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这里会取出_nodesNeedingLayout，也就是所有需要更新布局的节点，对每个节点调用_layoutWithoutResize()方法。从这一步开始，就开始了节点的布局流程了。</p>
+<h3 id="布局流程"><a href="#布局流程" class="headerlink" title="布局流程"></a>布局流程</h3><p>_layoutWithoutResize()方法，方法如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> _layoutWithoutResize() &#123;</span><br><span class="line">    ...</span><br><span class="line">      performLayout();</span><br><span class="line">     ...</span><br><span class="line">    _needsLayout = <span class="keyword">false</span>;</span><br><span class="line">    markNeedsPaint();</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，基本上就只是调用了 performLayout()和    markNeedsPaint()这两个方法</p>
+<p>这里performLayout()就是负责去算出节点自身的位置和大小的。RenderObject中没有定义performLayout()的实现，具体得让子类去实现。</p>
+<p>而且理所当然的是，当布局变化了，就需要重绘，所以这里有调用了一个 markNeedsPaint()标记节点需要重绘。</p>
+<p>如果我们自定一个RenderObjct的子类，是需要实现performLayout()方法去实现的我们的布局方法的。如果有多个子节点。那么我们还需要调用子节点的 layout(Constraints constraints, { bool parentUsesSize = false }方法。我们会对子节点约束传入layout方法中，调用完子节点的layout方法后，我们就可以知道子节点所占用的大小。从而去设置该节点的布局</p>
+<h4 id="layout方法"><a href="#layout方法" class="headerlink" title="layout方法"></a>layout方法</h4><p>这个layout方法是定义在RenderObject方法中的。如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> layout(Constraints constraints, &#123; <span class="built_in">bool</span> parentUsesSize = <span class="keyword">false</span> &#125;) &#123;</span><br><span class="line">  ...</span><br><span class="line">   RenderObject? relayoutBoundary;<span class="comment">//是否是布局边界，也就是说子节点布局改变会不会影响父布局</span></span><br><span class="line">   <span class="keyword">if</span> (!parentUsesSize || sizedByParent || constraints.isTight || parent <span class="keyword">is</span>! RenderObject) &#123;</span><br><span class="line">     <span class="comment">//如果满足以下的条件，则代表该节点是布局边界</span></span><br><span class="line">     <span class="comment">//1由父节点决定子节点的大小 </span></span><br><span class="line">     <span class="comment">//2父节点不需要用到子节点的大小 </span></span><br><span class="line">     <span class="comment">//3给定的约束能确定唯一的大小</span></span><br><span class="line">     <span class="comment">//4父节点不是一个RenderObject</span></span><br><span class="line">     relayoutBoundary = <span class="keyword">this</span>;</span><br><span class="line">   &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">     <span class="comment">//否则的话，relayoutBoundary就等于父节点的布局边界relayoutBoundary</span></span><br><span class="line">     relayoutBoundary = (parent! <span class="keyword">as</span> RenderObject)._relayoutBoundary;</span><br><span class="line">   &#125;</span><br><span class="line">   ...</span><br><span class="line">   <span class="keyword">if</span> (!_needsLayout &amp;&amp; constraints == _constraints &amp;&amp; relayoutBoundary == _relayoutBoundary) &#123;</span><br><span class="line">    ...</span><br><span class="line">      <span class="comment">//如果布局边界没有改变，约束没有改变，也没有标记为_needsLayout，则直接结束</span></span><br><span class="line">     <span class="keyword">return</span>;</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="comment">//更新节点约束</span></span><br><span class="line">   _constraints = constraints;</span><br><span class="line">   <span class="keyword">if</span> (_relayoutBoundary != <span class="keyword">null</span> &amp;&amp; relayoutBoundary != _relayoutBoundary) &#123;</span><br><span class="line">     <span class="comment">//如果自身布局边界改变了，则清空所有的子节点的边界布局，并标记_needsLayout为true</span></span><br><span class="line">     <span class="comment">//这样当该节点layout发生变化的时候，子节点的layout也会发生变化</span></span><br><span class="line">     visitChildren(_cleanChildRelayoutBoundary);</span><br><span class="line">   &#125;</span><br><span class="line">  <span class="comment">//更新_relayoutBoundary</span></span><br><span class="line">   _relayoutBoundary = relayoutBoundary;</span><br><span class="line">   ...</span><br><span class="line">   <span class="keyword">if</span> (sizedByParent) &#123;</span><br><span class="line">     ...</span><br><span class="line">       <span class="comment">//如果是父节点决定子节点的大小，则调用方法,</span></span><br><span class="line">       <span class="comment">//performResize是处理节点的大小</span></span><br><span class="line">       <span class="comment">//如果sizedByParent是true，则在performResize决定大小，不要在performLayout决定大小</span></span><br><span class="line">       <span class="comment">//performResize根据约束_constraints去决定大小</span></span><br><span class="line">       performResize();</span><br><span class="line">      ...</span><br><span class="line">     ..</span><br><span class="line">   &#125;</span><br><span class="line">  ...</span><br><span class="line">   <span class="keyword">try</span> &#123;</span><br><span class="line">     <span class="comment">//调用performLayout()方法</span></span><br><span class="line">     performLayout();</span><br><span class="line">    ...</span><br><span class="line">   &#125; </span><br><span class="line">  ...</span><br><span class="line">   _needsLayout = <span class="keyword">false</span>;</span><br><span class="line">   markNeedsPaint();</span><br><span class="line">  ...</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<p>layout方法主要做了以下这几个事情</p>
+<ol>
+<li>处理布局边界_relayoutBoundary</li>
+<li>如果sizedByParent是true，则调用performResize方法决定大小</li>
+<li>调用performLayout方法</li>
+</ol>
+<h5 id="布局边界-relayoutBoundary"><a href="#布局边界-relayoutBoundary" class="headerlink" title="布局边界_relayoutBoundary_"></a>布局边界_relayoutBoundary_</h5><p>_首先第一步这里是确定了布局边界_relayoutBoundary，这一点其实很重要，结合上面的markNeedsLayout方法来说，当调用markNeedsLayout方法的时候,就是根据 _relayoutBoundary去判断是否需要一直往上调用markNeedsLayout方法。调用markNeedsLayout越多，影响的节点就会越多，更新的UI速度就会越慢。所以从界面优化的角度上来说，增加 _relayoutBoundary 可以优化界面的流畅度。</p>
+<p>具体可以通过下方的这个条件去入手</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">!parentUsesSize || sizedByParent || constraints.isTight || parent <span class="keyword">is</span>! RenderObject</span><br></pre></td></tr></table></figure>
+
+<p>总的来说，就是减少Widget树的层级，以及尽量使用 </p>
+<ol>
+<li><p>不影响父节点的Widget。</p>
+</li>
+<li><p>由父节点决定大小的Widget</p>
+</li>
+<li><p>可以由约束确定唯一的大小的Widget。</p>
+</li>
+</ol>
+<p>这些需要看具体的Widget实现。</p>
+<h5 id="performResize"><a href="#performResize" class="headerlink" title="performResize"></a>performResize</h5><p>到了第二步，根据sizedByParent字段的值，判断是否调用performResize方法。如果sizedByParent为true，则代表节点的大小只有父节点调用layout时候提供的constraints有关系。那么就调用performResize()这个方法去确定节点的大小。一般来说，我们都是通过performLayout()方法去决定节点的大小。但是如果调用了performResize()，就不应该再在performLayout()去改变节点的大小</p>
+<h5 id="performLayout"><a href="#performLayout" class="headerlink" title="performLayout"></a>performLayout</h5><p>到了第三步，我们可以看到，调用了performLayout()方法。结合前面的流程可以看出方法的调用如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">父节点performLayout -&gt; 子节点layout -&gt; 子节点performLayout -&gt; 子子节点layout -&gt; 子子节点performLayout -&gt; .......</span><br></pre></td></tr></table></figure>
+
+<p>就是一个节点在布局的时候，如果存在子节点，就会调用子节点的layout方法并传入约束，子节点进行布局。然后一直重复这个过程，直到叶子节点为止</p>
+<p>在查看Flutter的布局流程的水后，会经常在网上看到一张图。</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d0b314a06fd14e07ac0f005060877f5a~tplv-k3u1fbpfcp-watermark.image" alt="约束"></p>
+<p>由父节点提供约束给子节点，子节点根据约束进行布局，然后返回给父节点去进行布局，完成布局流程。其实这就是第三步所说的这个过程。</p>
+<p>至此，大概的布局流程就是这样，如下方图片所示</p>
+<h3 id="布局流程图"><a href="#布局流程图" class="headerlink" title="布局流程图"></a>布局流程图</h3><p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7aa0fd05a28e4215858e2acc5e85978f~tplv-k3u1fbpfcp-watermark.image" alt="布局流程图"></p>
+<h3 id=""><a href="#" class="headerlink" title=""></a></h3><p>上方的这些布局流程都是在RenderObjct的基础上去展开的，但这只是定义了一个从上往下构建布局的基本流程。但是不涉及到具体的坐标系和节点大小。也就是说一个Widget显示在界面上的那个位置，占多少位置，光靠这个基础的布局流程是确定不了的。</p>
+<p>Flutter中提供了一个基于笛卡尔积的布局方式RenderBox。RenderBox是继承于RenderObjct。在RednderObjct的布局流程上拓展了笛卡尔坐标，节点的大小和命中测试等。Flutter中大部分的RenderObject都是继承于RenderBox的。</p>
+<p>如果你需要自定义坐标体系的布局，可以继承RenderObject。否则，继承RenderBox是一个最好的选择。</p>
+<h2 id="主要的布局RenderBox"><a href="#主要的布局RenderBox" class="headerlink" title="主要的布局RenderBox"></a>主要的布局RenderBox</h2><h3 id="大小和位置"><a href="#大小和位置" class="headerlink" title="大小和位置"></a>大小和位置</h3><p>box.dart中定义了BoxConstraints和BoxParentData。分别继承于Constraints和<a target="_blank" rel="noopener" href="https://juejin.cn/post/6952076273891934221#heading-16">ParentData</a>。RenderBox中的_constraints和parentData就是这两种类型。</p>
+<p>BoxConstraints定义如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">BoxConstraints</span> <span class="keyword">extends</span> <span class="title">Constraints</span> </span>&#123;</span><br><span class="line">  ...</span><br><span class="line">  <span class="keyword">final</span> <span class="built_in">double</span> minWidth;<span class="comment">//最小宽度</span></span><br><span class="line">  <span class="keyword">final</span> <span class="built_in">double</span> maxWidth;<span class="comment">//最大宽度</span></span><br><span class="line">  <span class="keyword">final</span> <span class="built_in">double</span> minHeight;.<span class="comment">//最小高度</span></span><br><span class="line">  <span class="keyword">final</span> <span class="built_in">double</span> maxHeight;<span class="comment">//最大高度</span></span><br><span class="line">  ...</span><br><span class="line">  &#125;	</span><br></pre></td></tr></table></figure>
+
+
+
+<p>BoxParentData定义如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">class BoxParentData extends ParentData &#123;</span><br><span class="line">...</span><br><span class="line">  Offset offset = Offset.zero;//基于笛卡尔积的起始点，</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>BoxConstraints确定了节点的大小，BoxParentData确定了节点的起始点。</p>
+<p>每一个节点都接受了父子节点传递BoxConstraints和BoxParentData，然后按照上方的布局流程，那么节点的起始点和大小都能确定下来。</p>
+<h3 id="计算大小"><a href="#计算大小" class="headerlink" title="计算大小"></a>计算大小</h3><p>RenderBox中提供了几个未实现的方法，子类需要提供实现</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">double</span> computeMinIntrinsicWidth(<span class="built_in">double</span> height) <span class="comment">//算出最小宽度</span></span><br><span class="line"><span class="built_in">double</span> computeMaxIntrinsicWidth(<span class="built_in">double</span> height) <span class="comment">//算出最大宽度</span></span><br><span class="line"><span class="built_in">double</span> computeMinIntrinsicHeight(<span class="built_in">double</span> width) <span class="comment">//算出最小高度</span></span><br><span class="line"><span class="built_in">double</span> computeMaxIntrinsicHeight(<span class="built_in">double</span> width) <span class="comment">//算出最大高度</span></span><br><span class="line">Size computeDryLayout(BoxConstraints constraints) <span class="comment">//算出父节点给的约束下子节点的大小</span></span><br></pre></td></tr></table></figure>
+
+<p>通过这些办法，节点可以算出应该占用的尺寸。Flutter中是不建议直接调用这些方法的，而是需要通过调用以下方法获取</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">double</span> getMinIntrinsicWidth(<span class="built_in">double</span> height) <span class="comment">//得到最小宽度</span></span><br><span class="line"><span class="built_in">double</span> getMaxIntrinsicWidth(<span class="built_in">double</span> height) <span class="comment">//得到最大宽度</span></span><br><span class="line"><span class="built_in">double</span> getMinIntrinsicHeight(<span class="built_in">double</span> width) <span class="comment">//得到最小高度</span></span><br><span class="line"><span class="built_in">double</span> getMaxIntrinsicHeight(<span class="built_in">double</span> width) <span class="comment">//得到最大高度</span></span><br><span class="line">Size getDryLayout(BoxConstraints constraints) <span class="comment">//得到父节点给的约束下子节点的大小</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>在前面的layout过程中，performLayout阶段会调用子节点的layout方法，然后就能确定子节点的大小。再通过子节点的getMinIntrinsicxxx或是getDryLayout方法去获取宽高，获取子节点的尺寸后就可以进行自身的布局。</p>
+<p>顺带一提的是，xxxDryLayout方法是Flutter2.0以后才有的，这个方法是用来替代performResize方法的。也就是说如果一个节点的大小只有父节点的约束决定，那么不应该在performLayout方法中算出节点的大小，而应该在computeDryLayout计算出节点的大小。</p>
+<p>而另外xxxDryLayout方法可以在不改变RenderObjct的其他状态的情况下，算出节点应该占用的大小。这里的DryLayout中的Dry就是相对普通layout方法而言的，从上面可知，layout方法是会改变边界布局，约束等。</p>
+<h2 id="hitTest"><a href="#hitTest" class="headerlink" title="hitTest"></a>hitTest</h2><p>在布局完成后，界面UI也显示完整了，那么这时候用户点击了某个Widget，这个点击事件是怎么传递呢？这里以点击事件为例，说明事件传递的流程</p>
+<p>上一篇文章提到，在App启动的时候会初始化一系列Binding,其中有一个是GestureBinding。当点击事件出现时，会调用GestureBinding的_handlePointerDataPacket方法，经过事件采用的操作最终会调用_handlePointerEventImmediately(PointerEvent event)方法，调用流程如下</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1fc2ac8fd44942b1add91cb36dc04fb1~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>_handlePointerEventImmediately如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> _handlePointerEventImmediately(PointerEvent event) &#123;</span><br><span class="line">    HitTestResult? hitTestResult;</span><br><span class="line">    <span class="keyword">if</span> (event <span class="keyword">is</span> PointerDownEvent || event <span class="keyword">is</span> PointerSignalEvent || event <span class="keyword">is</span> PointerHoverEvent) &#123;</span><br><span class="line">     ...</span><br><span class="line">      hitTestResult = HitTestResult();<span class="comment">//存储hitTest结果</span></span><br><span class="line">      hitTest(hitTestResult, event.position);<span class="comment">//进行hitTest</span></span><br><span class="line">      <span class="keyword">if</span> (event <span class="keyword">is</span> PointerDownEvent) &#123;</span><br><span class="line">        _hitTests[event.pointer] = hitTestResult;</span><br><span class="line">      &#125;</span><br><span class="line">      ...</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (event <span class="keyword">is</span> PointerUpEvent || event <span class="keyword">is</span> PointerCancelEvent) &#123;</span><br><span class="line">      hitTestResult = _hitTests.remove(event.pointer);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (event.down) &#123;</span><br><span class="line">      ...</span><br><span class="line">      hitTestResult = _hitTests[event.pointer];</span><br><span class="line">    &#125;</span><br><span class="line">   ...</span><br><span class="line">    &#125;());</span><br><span class="line">    <span class="keyword">if</span> (hitTestResult != <span class="keyword">null</span> ||</span><br><span class="line">        event <span class="keyword">is</span> PointerAddedEvent ||</span><br><span class="line">        event <span class="keyword">is</span> PointerRemovedEvent) &#123;</span><br><span class="line">      <span class="keyword">assert</span>(event.position != <span class="keyword">null</span>);</span><br><span class="line">      dispatchEvent(event, hitTestResult);<span class="comment">//分发事件</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，这里最主要是两步</p>
+<ol>
+<li>hitTest 命中测试</li>
+<li>dispatchEvent 事件分发</li>
+</ol>
+<h3 id="hitTest-命中测试"><a href="#hitTest-命中测试" class="headerlink" title="hitTest 命中测试"></a>hitTest 命中测试</h3><p>因为Binding的mixin的设计，这里的hitTest方法会走到RenderBinding的hitTest方法中，如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">@override</span><br><span class="line">  void hitTest(HitTestResult result, Offset position) &#123;</span><br><span class="line">    ...</span><br><span class="line">    renderView.hitTest(result, position: position);</span><br><span class="line">    //这里调用了super.hitTest，这个定义在GestureBing当中</span><br><span class="line">    //会把Bingding也放入到hitTestResult中</span><br><span class="line">    super.hitTest(result, position);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里会调用renderView.hitTest(result, position: position)方法。这里的renderView就是App启动的时候RenderObjct树的根节点。它是RenderView类型的，继承于RenderObject,mixin了RenderObjectWithChildMixin<RenderBox>。其hitTest方法如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">bool</span> hitTest(HitTestResult result, &#123; <span class="keyword">required</span> Offset position &#125;) &#123;</span><br><span class="line">    <span class="keyword">if</span> (child != <span class="keyword">null</span>)</span><br><span class="line">      child!.hitTest(BoxHitTestResult.wrap(result), position: position);</span><br><span class="line">    result.add(HitTestEntry(<span class="keyword">this</span>));</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>因为mixIn了RenderObjectWithChildMixin<RenderBox>，所以当调用了子节点的hitTest方法的时候，会走到RenderBox的hitTest方法。如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">bool</span> hitTest(BoxHitTestResult result, &#123; <span class="keyword">required</span> Offset position &#125;) &#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">if</span> (_size!.contains(position)) &#123;</span><br><span class="line">      <span class="keyword">if</span> (hitTestChildren(result, position: position) || hitTestSelf(position)) &#123;</span><br><span class="line">        result.add(BoxHitTestEntry(<span class="keyword">this</span>, position));</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里的hitTest调用hitTestChildren和hitTestSelf方法。这两个方法默认返回false,应该交由具体的子类实现。</p>
+<p>hitTestChildren方法用于处理判断子节点是否命中测试，hitTestSelf判断节点本身是否响应命中测试。如果命中，就往命中测试结果中添加该节点。</p>
+<p>一般而言，hitTestChildren方法中一般都会调用子节点的hitTest方法，通过</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hitTest -&gt; hitTestChildren -&gt; hitTest -&gt; hitTestChildren -&gt; .... </span><br></pre></td></tr></table></figure>
+
+<p>这个流程，会把所有符合命中测试的结果都存到GestureBinding的_handlePointerEventImmediately方法中的hitTestResult中，也就是说，在</p>
+<h3 id="dispatchEvent-事件分发"><a href="#dispatchEvent-事件分发" class="headerlink" title="dispatchEvent 事件分发"></a>dispatchEvent 事件分发</h3><p>得到hitTestResult以后，就执行dispatchEvent方法，如下</p>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> dispatchEvent(PointerEvent event, HitTestResult? hitTestResult) &#123;</span><br><span class="line">  ...</span><br><span class="line">    <span class="comment">//便利result</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">final</span> HitTestEntry entry <span class="keyword">in</span> hitTestResult.path) &#123;</span><br><span class="line">      ...</span><br><span class="line">        <span class="comment">//事情处理与分发</span></span><br><span class="line">        entry.target.handleEvent(event.transformed(entry.transform), entry);</span><br><span class="line">     ...</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>因为这里涉及很多的事件分发的处理，边幅较大，所以不在这里讨论。</p>
+<h3 id="hitTest流程图"><a href="#hitTest流程图" class="headerlink" title="hitTest流程图"></a>hitTest流程图</h3><p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3722bc5e13374a42ab2b0e5dfaf10463~tplv-k3u1fbpfcp-watermark.image" alt="hitTest流程图"></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这里主要分析了布局流程，但是没有详细的具体例子(不然文章篇幅暴涨)，但是读者可以阅读源码的时候可以结合具体的例子去看，这里推荐看Stack的实现，因为这个Widget的布局计算相对简单。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/01/08/iOS/2/ios2/" rel="prev" title="理解">
+      <i class="fa fa-chevron-left"></i> 理解
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/8888/01/01/index/" rel="next" title="概览">
+      概览 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RenderObject"><span class="nav-number">2.</span> <span class="nav-text">RenderObject</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E7%A1%80"><span class="nav-number">2.1.</span> <span class="nav-text">基础</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AF%B7%E6%B1%82%E5%B8%83%E5%B1%80%E6%9B%B4%E6%96%B0"><span class="nav-number">2.2.</span> <span class="nav-text">请求布局更新</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%83%E5%B1%80%E6%9B%B4%E6%96%B0%E8%AF%B7%E6%B1%82%E5%A4%84%E7%90%86"><span class="nav-number">2.3.</span> <span class="nav-text">布局更新请求处理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%83%E5%B1%80%E6%B5%81%E7%A8%8B"><span class="nav-number">2.4.</span> <span class="nav-text">布局流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#layout%E6%96%B9%E6%B3%95"><span class="nav-number">2.4.1.</span> <span class="nav-text">layout方法</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E5%B8%83%E5%B1%80%E8%BE%B9%E7%95%8C-relayoutBoundary"><span class="nav-number">2.4.1.1.</span> <span class="nav-text">布局边界_relayoutBoundary_</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#performResize"><span class="nav-number">2.4.1.2.</span> <span class="nav-text">performResize</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#performLayout"><span class="nav-number">2.4.1.3.</span> <span class="nav-text">performLayout</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%83%E5%B1%80%E6%B5%81%E7%A8%8B%E5%9B%BE"><span class="nav-number">2.5.</span> <span class="nav-text">布局流程图</span></a></li><li class="nav-item nav-level-3"><a class="nav-link"><span class="nav-number">2.6.</span> <span class="nav-text"></span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BB%E8%A6%81%E7%9A%84%E5%B8%83%E5%B1%80RenderBox"><span class="nav-number">3.</span> <span class="nav-text">主要的布局RenderBox</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%A7%E5%B0%8F%E5%92%8C%E4%BD%8D%E7%BD%AE"><span class="nav-number">3.1.</span> <span class="nav-text">大小和位置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AE%A1%E7%AE%97%E5%A4%A7%E5%B0%8F"><span class="nav-number">3.2.</span> <span class="nav-text">计算大小</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#hitTest"><span class="nav-number">4.</span> <span class="nav-text">hitTest</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#hitTest-%E5%91%BD%E4%B8%AD%E6%B5%8B%E8%AF%95"><span class="nav-number">4.1.</span> <span class="nav-text">hitTest 命中测试</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#dispatchEvent-%E4%BA%8B%E4%BB%B6%E5%88%86%E5%8F%91"><span class="nav-number">4.2.</span> <span class="nav-text">dispatchEvent 事件分发</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#hitTest%E6%B5%81%E7%A8%8B%E5%9B%BE"><span class="nav-number">4.3.</span> <span class="nav-text">hitTest流程图</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="samstring"
+      src="https://p9-passport.byteacctimg.com/img/user-avatar/b02abbd29495eadaaf476f3b5cb129bf~300x300.image">
+  <p class="site-author-name" itemprop="name">samstring</p>
+  <div class="site-description" itemprop="description">问号青年</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+          <span class="site-state-item-count">6</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+  </nav>
+</div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://juejin.cn/user/3957854362672798" title="https:&#x2F;&#x2F;juejin.cn&#x2F;user&#x2F;3957854362672798" rel="noopener" target="_blank">掘金</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">samstring</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

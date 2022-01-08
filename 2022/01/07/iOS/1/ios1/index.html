@@ -36,7 +36,7 @@
 <meta property="og:image" content="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b89e0487287f473b864485fd0abd21af~tplv-k3u1fbpfcp-watermark.image">
 <meta property="og:image" content="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2ee1124925b04a9aab89867de8231816~tplv-k3u1fbpfcp-watermark.image">
 <meta property="article:published_time" content="2022-01-07T14:23:54.000Z">
-<meta property="article:modified_time" content="2022-01-07T15:14:17.193Z">
+<meta property="article:modified_time" content="2022-01-08T07:38:28.038Z">
 <meta property="article:author" content="samstring">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b90b00cf492844f2a5418a5bc1aa8851~tplv-k3u1fbpfcp-watermark.image">
@@ -108,6 +108,7 @@
       <h1 class="site-title">samstring</h1>
       <span class="logo-line-after"><i></i></span>
     </a>
+      <p class="site-subtitle" itemprop="description">一个平平无奇的程序猿</p>
   </div>
 
   <div class="site-nav-right">
@@ -167,9 +168,9 @@
     <link itemprop="mainEntityOfPage" href="https://samstring.github.io.git/2022/01/07/iOS/1/ios1/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="image" content="https://p9-passport.byteacctimg.com/img/user-avatar/b02abbd29495eadaaf476f3b5cb129bf~300x300.image">
       <meta itemprop="name" content="samstring">
-      <meta itemprop="description" content="">
+      <meta itemprop="description" content="问号青年">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -186,10 +187,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
-              
 
-              <time title="Created: 2022-01-07 22:23:54 / Modified: 23:14:17" itemprop="dateCreated datePublished" datetime="2022-01-07T22:23:54+08:00">2022-01-07</time>
+              <time title="Created: 2022-01-07 22:23:54" itemprop="dateCreated datePublished" datetime="2022-01-07T22:23:54+08:00">2022-01-07</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-01-08 15:38:28" itemprop="dateModified" datetime="2022-01-08T15:38:28+08:00">2022-01-08</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -223,6 +230,7 @@
 <p>其中Darwin的内核是XNU。然后XNU里面使用了BSD和Mach。</p>
 <p>到这里可以基本理解为MacOS和iOS是一个类Unix系统，BSD也兼容Posix这个标准，所以我们能在iOS开发中使用pthread，在Mac上终端处理unix命令的原因。<br>这里关于iOS和MAC OS架构的描述就先说这么多，如果有兴趣了解更深一些的话，可以查看《深入了解MACOS&amp;iOS操作系统》一书。</p>
 <p>先介绍这个系统架构，主要是为了让大家了解，在后续的文章中用到的方法有些是Mach这一层的提供的。</p>
+<span id="more"></span>
 <h2 id="二、-Mach-O"><a href="#二、-Mach-O" class="headerlink" title="二、 Mach-O"></a>二、 Mach-O</h2><p>Mach-O是什么？</p>
 <p>我们在打开了一个App，可以理解在手机的操作系统上运行了一个App进程。而进程是特殊文件在内存中加载得到的结果，这种特殊文件必须是操作系统可理解的。</p>
 <p>在unix中，可运行的程序会编译成一个二进制文件，unix对于二进制文件，有一个标准的格式叫ElF。苹果爸爸偏偏不依，定制了一个属于苹果的格式，这个就是Mach-O格式，全称Mach-Object。</p>
@@ -417,14 +425,16 @@
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="samstring"
+      src="https://p9-passport.byteacctimg.com/img/user-avatar/b02abbd29495eadaaf476f3b5cb129bf~300x300.image">
   <p class="site-author-name" itemprop="name">samstring</p>
-  <div class="site-description" itemprop="description"></div>
+  <div class="site-description" itemprop="description">问号青年</div>
 </div>
 <div class="site-state-wrap motion-element">
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
           <a href="/archives">
-          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-count">6</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
@@ -437,6 +447,16 @@
 </div>
 
 
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://juejin.cn/user/3957854362672798" title="https:&#x2F;&#x2F;juejin.cn&#x2F;user&#x2F;3957854362672798" rel="noopener" target="_blank">掘金</a>
+        </li>
+    </ul>
+  </div>
 
       </div>
 
@@ -463,8 +483,6 @@
   </span>
   <span class="author" itemprop="copyrightHolder">samstring</span>
 </div>
-  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a>
-  </div>
 
         
 
