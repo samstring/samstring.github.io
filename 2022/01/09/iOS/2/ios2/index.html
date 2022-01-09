@@ -20,12 +20,12 @@
     var CONFIG = {"hostname":"samstring.github.io.git","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="前言本文从网上的二进制重排开始，探讨Xcode工程目录和CocoaPods到底做了什么。 一、问题抖音之前发表了一个利用二进制重排的方案去优化启动速度。然后这两年关于二进制重排的文章已经有很多了。 其核心是记录在启动时刻获取调用了哪些文件的哪些方法，然后将这些方法按顺序放在‘.order’文件中，系统在加载时根据这些内容优先加载，以减少page fault次数，提高启动速度。 很多文章中的方案都">
+  <meta name="description" content="前言本文从补充网上的二进制重排方案开始，探讨Xcode工程目录和CocoaPods到底做了什么。 一、问题抖音之前发表了一个利用二进制重排的方案去优化启动速度。然后这两年关于二进制重排的文章已经有很多了。 其核心是记录在启动时刻获取调用了哪些文件的哪些方法，然后将这些方法按顺序放在‘.order’文件中，系统在加载时根据这些内容优先加载，以减少page fault次数，提高启动速度。 很多文章中">
 <meta property="og:type" content="article">
 <meta property="og:title" content="是时候理解Xcode工程与CocoaPods了">
 <meta property="og:url" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/index.html">
 <meta property="og:site_name" content="samstring">
-<meta property="og:description" content="前言本文从网上的二进制重排开始，探讨Xcode工程目录和CocoaPods到底做了什么。 一、问题抖音之前发表了一个利用二进制重排的方案去优化启动速度。然后这两年关于二进制重排的文章已经有很多了。 其核心是记录在启动时刻获取调用了哪些文件的哪些方法，然后将这些方法按顺序放在‘.order’文件中，系统在加载时根据这些内容优先加载，以减少page fault次数，提高启动速度。 很多文章中的方案都">
+<meta property="og:description" content="前言本文从补充网上的二进制重排方案开始，探讨Xcode工程目录和CocoaPods到底做了什么。 一、问题抖音之前发表了一个利用二进制重排的方案去优化启动速度。然后这两年关于二进制重排的文章已经有很多了。 其核心是记录在启动时刻获取调用了哪些文件的哪些方法，然后将这些方法按顺序放在‘.order’文件中，系统在加载时根据这些内容优先加载，以减少page fault次数，提高启动速度。 很多文章中">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/2.png">
 <meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/iShot2022-01-08%2022.22.17.png">
@@ -37,8 +37,14 @@
 <meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/iShot2022-01-09%2001.10.28.png">
 <meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/iShot2022-01-09%2001.15.23.png">
 <meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/iShot2022-01-09%2001.39.30.png">
+<meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/iShot2022-01-09%2014.18.42.png">
+<meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/iShot2022-01-09%2014.37.59.png">
+<meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/16417104383902.jpg">
+<meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/iShot2022-01-09%2014.51.21.png">
+<meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/iShot2022-01-09%2020.29.31.png">
+<meta property="og:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/iShot2022-01-09%2021.19.52.png">
 <meta property="article:published_time" content="2022-01-09T07:17:01.000Z">
-<meta property="article:modified_time" content="2022-01-08T17:55:46.518Z">
+<meta property="article:modified_time" content="2022-01-09T13:28:37.020Z">
 <meta property="article:author" content="samstring">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://samstring.github.io.git/2022/01/09/iOS/2/ios2/2.png">
@@ -191,7 +197,7 @@
               <span class="post-meta-item-text">Posted on</span>
               
 
-              <time title="Created: 2022-01-09 15:17:01 / Modified: 01:55:46" itemprop="dateCreated datePublished" datetime="2022-01-09T15:17:01+08:00">2022-01-09</time>
+              <time title="Created: 2022-01-09 15:17:01 / Modified: 21:28:37" itemprop="dateCreated datePublished" datetime="2022-01-09T15:17:01+08:00">2022-01-09</time>
             </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -214,7 +220,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>本文从网上的二进制重排开始，探讨Xcode工程目录和CocoaPods到底做了什么。</p>
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>本文从补充网上的二进制重排方案开始，探讨Xcode工程目录和CocoaPods到底做了什么。</p>
 <h2 id="一、问题"><a href="#一、问题" class="headerlink" title="一、问题"></a>一、问题</h2><p>抖音之前发表了一个利用二进制重排的方案去优化启动速度。然后这两年关于二进制重排的文章已经有很多了。</p>
 <p>其核心是记录在启动时刻获取调用了哪些文件的哪些方法，然后将这些方法按顺序放在‘.order’文件中，系统在加载时根据这些内容优先加载，以减少page fault次数，提高启动速度。</p>
 <p><br>很多文章中的方案都是基于Clang插桩的方式去实现。以下以一篇我认为很好的文章 <a target="_blank" rel="noopener" href="https://juejin.cn/post/6844904130406793224#heading-36">启动优化之Clang插桩实现二进制重排</a> 一文为例</p>
@@ -261,9 +267,26 @@
 <li>平台的默认值</li>
 </ol>
 <hr>
-<h2 id="三、CocoaPods"><a href="#三、CocoaPods" class="headerlink" title="三、CocoaPods"></a>三、CocoaPods</h2><h3 id="CocoaPods与Xcode工程"><a href="#CocoaPods与Xcode工程" class="headerlink" title="CocoaPods与Xcode工程"></a>CocoaPods与Xcode工程</h3><p>在我们平常开发中</p>
-<h3 id="CocoaPods简述"><a href="#CocoaPods简述" class="headerlink" title="CocoaPods简述"></a>CocoaPods简述</h3><p>从podfile文件说起</p>
-<h3 id=""><a href="#" class="headerlink" title=""></a></h3><h2 id="四、完善二进制重排"><a href="#四、完善二进制重排" class="headerlink" title="四、完善二进制重排"></a>四、完善二进制重排</h2><h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a target="_blank" rel="noopener" href="https://developer.apple.com/library/archive/featuredarticles/XcodeConcepts/Concept-Targets.html#//apple_ref/doc/uid/TP40009328-CH4-SW1">https://developer.apple.com/library/archive/featuredarticles/XcodeConcepts/Concept-Targets.html#//apple_ref/doc/uid/TP40009328-CH4-SW1</a></p>
+<h2 id="三、CocoaPods"><a href="#三、CocoaPods" class="headerlink" title="三、CocoaPods"></a>三、CocoaPods</h2><h3 id="CocoaPods与Xcode工程"><a href="#CocoaPods与Xcode工程" class="headerlink" title="CocoaPods与Xcode工程"></a>CocoaPods与Xcode工程</h3><p>在我们平常开发中,我们调用’pod init’以后就会生成一个Podfile文件。然后填入依赖的库，调用‘pod install’就会生成一个WorkSpace和一个Pods文件夹，Pods文件夹里面有一个名为Pods的Project<br><img src="iShot2022-01-09%2014.18.42.png" alt="iShot2022-01-09 14.18.42"><br>打开WorkSpace,可以看到如下</p>
+<p><img src="iShot2022-01-09%2014.37.59.png" alt="iShot2022-01-09 14.37.59"></p>
+<p> 通过pod引入的库会被当作一个Target，每个Target的产物是framework。而在Pods-SFMainProject中的Target中，有依赖于其他几个Target。如下<br> <img src="16417104383902.jpg"><br>结合在【Target】-【依赖】小节中主工程的Target依赖于Pods-SFMainProject这个Target的产物Pods-SFMainProject.framwork，可以得知Target与Target之间的关系,如下<br><img src="iShot2022-01-09%2014.51.21.png" alt="iShot2022-01-09 14.51.21"></p>
+<p>在主Target构建前，会把依赖的各个Target先构建，在Target再依赖其他的Target产出的framework去构建。</p>
+<h3 id="CocoaPods"><a href="#CocoaPods" class="headerlink" title="CocoaPods"></a>CocoaPods</h3><p>上面说到，调用pod install后会生成Pods文件夹和WorkSpace,到底是怎么做的呢？</p>
+<h3 id="CocoaPods是什么"><a href="#CocoaPods是什么" class="headerlink" title="CocoaPods是什么"></a>CocoaPods是什么</h3><h4 id="Ruby和"><a href="#Ruby和" class="headerlink" title="Ruby和"></a>Ruby和</h4><p>CocoaPods其实是一个基于Ruby实现的库管理工具。先介绍一下Ruby常用的开发环境。</p>
+<ul>
+<li>Ruby：一种开发语言，类似于JAVA,Python等</li>
+<li>RVM：用于帮你安装Ruby环境，帮你管理多个Ruby环境，帮你管理你开发的每个Ruby应用使用机器上哪个Ruby环境</li>
+<li>RubyGems是一个Ruby程序包管理器。它将一个Ruby应用程序打包到一个gem里，作为一个安装单元。</li>
+<li>Gem：是封装起来的Ruby应用程序或代码库。</li>
+<li>Gemfile：定义你的应用依赖哪些第三方包，bundle根据该配置去寻找这些包。</li>
+<li>Bundler：是管理 Gem 依赖的工具。在配置文件Gemfile里说明你的应用依赖哪些第三方包，他自动帮你下载安装多个包，并且会下载这些包依赖的包</li>
+</ul>
+<p>大致关系如下<br><img src="iShot2022-01-09%2020.29.31.png" alt="iShot2022-01-09 20.29.31"></p>
+<p>对于CocoaPods，其实也是一个Gem。所以我们可以通过添加一个Gemfile文件为项目指定CocoaPods版本。</p>
+<p>CocoaPods也借鉴了这种模式。设计如下<br><img src="iShot2022-01-09%2021.19.52.png" alt="iShot2022-01-09 21.19.52"></p>
+<h4 id="CocoaPods架构"><a href="#CocoaPods架构" class="headerlink" title="CocoaPods架构"></a>CocoaPods架构</h4><p>更新中</p>
+<h2 id="四、完善二进制重排"><a href="#四、完善二进制重排" class="headerlink" title="四、完善二进制重排"></a>四、完善二进制重排</h2><p>更新中</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a target="_blank" rel="noopener" href="https://developer.apple.com/library/archive/featuredarticles/XcodeConcepts/Concept-Targets.html#//apple_ref/doc/uid/TP40009328-CH4-SW1">https://developer.apple.com/library/archive/featuredarticles/XcodeConcepts/Concept-Targets.html#//apple_ref/doc/uid/TP40009328-CH4-SW1</a></p>
 <p><a target="_blank" rel="noopener" href="https://blog.csdn.net/u011114264/article/details/52487236">https://blog.csdn.net/u011114264/article/details/52487236</a></p>
 
     </div>
@@ -345,7 +368,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E9%97%AE%E9%A2%98"><span class="nav-number">2.</span> <span class="nav-text">一、问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Xcode%E5%B7%A5%E7%A8%8B"><span class="nav-number">3.</span> <span class="nav-text">二、Xcode工程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%B8%E8%A7%84Xcode%E5%B7%A5%E7%A8%8B%E7%BB%93%E6%9E%84"><span class="nav-number">3.1.</span> <span class="nav-text">常规Xcode工程结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target"><span class="nav-number">3.2.</span> <span class="nav-text">Target</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE"><span class="nav-number">3.2.1.</span> <span class="nav-text">配置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BE%9D%E8%B5%96"><span class="nav-number">3.2.2.</span> <span class="nav-text">依赖</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Project"><span class="nav-number">3.3.</span> <span class="nav-text">Project</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#WorkSpace"><span class="nav-number">3.4.</span> <span class="nav-text">WorkSpace</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Scheme"><span class="nav-number">3.5.</span> <span class="nav-text">Scheme</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Build-Settings"><span class="nav-number">3.6.</span> <span class="nav-text">Build Settings</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81CocoaPods"><span class="nav-number">4.</span> <span class="nav-text">三、CocoaPods</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CocoaPods%E4%B8%8EXcode%E5%B7%A5%E7%A8%8B"><span class="nav-number">4.1.</span> <span class="nav-text">CocoaPods与Xcode工程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CocoaPods%E7%AE%80%E8%BF%B0"><span class="nav-number">4.2.</span> <span class="nav-text">CocoaPods简述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link"><span class="nav-number">4.3.</span> <span class="nav-text"></span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%AE%8C%E5%96%84%E4%BA%8C%E8%BF%9B%E5%88%B6%E9%87%8D%E6%8E%92"><span class="nav-number">5.</span> <span class="nav-text">四、完善二进制重排</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">6.</span> <span class="nav-text">参考</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E9%97%AE%E9%A2%98"><span class="nav-number">2.</span> <span class="nav-text">一、问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Xcode%E5%B7%A5%E7%A8%8B"><span class="nav-number">3.</span> <span class="nav-text">二、Xcode工程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%B8%E8%A7%84Xcode%E5%B7%A5%E7%A8%8B%E7%BB%93%E6%9E%84"><span class="nav-number">3.1.</span> <span class="nav-text">常规Xcode工程结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target"><span class="nav-number">3.2.</span> <span class="nav-text">Target</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE"><span class="nav-number">3.2.1.</span> <span class="nav-text">配置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BE%9D%E8%B5%96"><span class="nav-number">3.2.2.</span> <span class="nav-text">依赖</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Project"><span class="nav-number">3.3.</span> <span class="nav-text">Project</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#WorkSpace"><span class="nav-number">3.4.</span> <span class="nav-text">WorkSpace</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Scheme"><span class="nav-number">3.5.</span> <span class="nav-text">Scheme</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Build-Settings"><span class="nav-number">3.6.</span> <span class="nav-text">Build Settings</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81CocoaPods"><span class="nav-number">4.</span> <span class="nav-text">三、CocoaPods</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CocoaPods%E4%B8%8EXcode%E5%B7%A5%E7%A8%8B"><span class="nav-number">4.1.</span> <span class="nav-text">CocoaPods与Xcode工程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CocoaPods"><span class="nav-number">4.2.</span> <span class="nav-text">CocoaPods</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CocoaPods%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">4.3.</span> <span class="nav-text">CocoaPods是什么</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Ruby%E5%92%8C"><span class="nav-number">4.3.1.</span> <span class="nav-text">Ruby和</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#CocoaPods%E6%9E%B6%E6%9E%84"><span class="nav-number">4.3.2.</span> <span class="nav-text">CocoaPods架构</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%AE%8C%E5%96%84%E4%BA%8C%E8%BF%9B%E5%88%B6%E9%87%8D%E6%8E%92"><span class="nav-number">5.</span> <span class="nav-text">四、完善二进制重排</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">6.</span> <span class="nav-text">参考</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
