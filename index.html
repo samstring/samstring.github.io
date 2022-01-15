@@ -254,10 +254,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
-              
 
-              <time title="Created: 2022-01-09 15:17:01 / Modified: 21:28:37" itemprop="dateCreated datePublished" datetime="2022-01-09T15:17:01+08:00">2022-01-09</time>
+              <time title="Created: 2022-01-09 15:17:01" itemprop="dateCreated datePublished" datetime="2022-01-09T15:17:01+08:00">2022-01-09</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-01-15 15:11:08" itemprop="dateModified" datetime="2022-01-15T15:11:08+08:00">2022-01-15</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -279,18 +285,17 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>本文从补充网上的二进制重排方案开始，探讨Xcode工程目录和CocoaPods到底做了什么。</p>
+          <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>本文主要从补充网上的二进制重排方案开始，探讨Xcode工程目录和CocoaPods，理解CocoaPods到底为我们做了什么。</p>
 <h2 id="一、问题"><a href="#一、问题" class="headerlink" title="一、问题"></a>一、问题</h2><p>抖音之前发表了一个利用二进制重排的方案去优化启动速度。然后这两年关于二进制重排的文章已经有很多了。</p>
-<p>其核心是记录在启动时刻获取调用了哪些文件的哪些方法，然后将这些方法按顺序放在‘.order’文件中，系统在加载时根据这些内容优先加载，以减少page fault次数，提高启动速度。</p>
-<p><br>很多文章中的方案都是基于Clang插桩的方式去实现。以下以一篇我认为很好的文章 <a target="_blank" rel="noopener" href="https://juejin.cn/post/6844904130406793224#heading-36">启动优化之Clang插桩实现二进制重排</a> 一文为例</p>
+<p>其核心是记录在启动时刻获取调用了哪些文件的哪些方法，然后将这些方法按顺序放在<code>.order</code>文件中，系统在加载时根据这些内容优先加载，以减少page fault次数，提高启动速度。<br><br>很多文章中的方案都是基于Clang插桩的方式去实现。以下以一篇我认为很好的文章 <a target="_blank" rel="noopener" href="https://juejin.cn/post/6844904130406793224#heading-36">启动优化之Clang插桩实现二进制重排</a> 一文为例</p>
 <p>文中步骤如下</p>
 <ol>
-<li>打开工程，修改项目配置，增加-fsanitize-coverage=func,trace-pc-guard这个Other C Flags</li>
-<li>添加__sanitizer_cov_trace_pc_guard函数。这个函数会hook方法，在每一个方法调用前都会调用。</li>
-<li>在__sanitizer_cov_trace_pc_guard记录调用的方法，并存入数组</li>
-<li>将数组里面的方法按顺序写入到’.order’文件中</li>
+<li>打开工程，为主工程target配置build settings，增加<code>-fsanitize-coverage=func,trace-pc-guard</code>这个Other C Flags</li>
+<li>添加<code>__sanitizer_cov_trace_pc_guard</code>函数。这个函数会hook方法，在每一个方法调用前都会调用。</li>
+<li>在<code>__sanitizer_cov_trace_pc_guard</code>记录调用的方法，并存入数组</li>
+<li>将数组里面的方法按顺序写入到<code>.order</code>文件中</li>
 </ol>
-<p>但文中只提及到了在主工程中插桩，这样的话只能记录主工程中的方法调用顺序。对于我们通过CocoaPods引入的库的方法是记录不到的。</p>
+<p>但文中只提及到了在主工程中target插桩，这样的话只能记录主工程中的方法调用顺序。对于我们通过CocoaPods引入的库的方法是记录不到的。</p>
 <p>下面我们将详细分析Xcode工程和CocoaPods，来完善这个通过Clang插桩实现二进制重排的方案。</p>
 <hr>
           <!--noindex-->
